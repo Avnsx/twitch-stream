@@ -9,30 +9,24 @@ config = configparser.ConfigParser()
 
 # Check if the config file exists, if not create one
 if not os.path.exists(config_file_path):
-    config['DEFAULT'] = {'twitch_username': '',
-                         'output_folder': ''}
+    config['DEFAULT'] = {'output_folder': ''}
     with open(config_file_path, 'w') as configfile:
         config.write(configfile)
 
 # Load the config file
 config.read(config_file_path)
-twitch_username = config['DEFAULT']['twitch_username']
+twitch_username = input('Streamer Username to record: ')
 output_folder = config['DEFAULT']['output_folder']
 
 # If the output_folder variable is not set, ask the user for input and open file explorer
 if not output_folder:
-    print('Please choose the Folder location, in which all future recordings should be saved into.\nA explorer window should open up soon ...')
+    print('\nNow please choose the Folder location, in which all future recordings should be saved into.\nA explorer window should open up soon ...')
     s(3)
     root = Tk()
     root.withdraw()
     output_folder = filedialog.askdirectory(title="Select Output Folder")
     config['DEFAULT']['output_folder'] = output_folder
     root.destroy()
-
-# If the twitch_username variable is not set, ask the user for input
-if not twitch_username:
-    twitch_username = input('Streamer Username to record: ')
-    config['DEFAULT']['twitch_username'] = twitch_username
 
 # Save the variables to the config file
 with open(config_file_path, 'w') as configfile:
