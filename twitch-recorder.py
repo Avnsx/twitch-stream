@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import asyncio, streamlink, subprocess, os, configparser
 from datetime import datetime
 from tkinter import filedialog, Tk
