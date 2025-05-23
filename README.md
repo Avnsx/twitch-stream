@@ -1,5 +1,5 @@
 # Twitch Stream Recorder
-This Python code is a simple Twitch stream recorder using the asyncio & streamlink libraries, which allows you to record the best available quality livestream of a Twitch streamer and save the recording as a mp4 file to your computer. The reason I made this is, because other existing libraries were either broken or made things too complicated bothering people to get their twitch API tokens etc.
+This Python code is a simple Twitch stream recorder using the streamlink library, which allows you to record the best available quality livestream of a Twitch streamer and save the recording as a mp4 file to your computer. The reason I made this is, because other existing libraries were either broken or made things too complicated bothering people to get their twitch API tokens etc.
 
 ## Features
 * Record twitch streams right as they are happening
@@ -8,7 +8,7 @@ This Python code is a simple Twitch stream recorder using the asyncio & streamli
 
 ## Setup
 1. Install the necessary python libraries [with pip](https://youtu.be/9z7gGUbAj5U?t=13) through cmd / terminal:
-``pip install asyncio streamlink``
+``pip install streamlink``
 
 2. Install ``ffmpeg`` and make sure it's declared as a system environment variable
   
