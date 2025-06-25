@@ -51,30 +51,62 @@ class TwitchRecorder:
             print(f"❌ Output folder doesn't exist: {self.output_folder}")
             sys.exit(1)
     
+    def _sanitize_filename(self, text):
+        """Remove or replace characters that are invalid in Windows filenames"""
+        if not text:
+            return ""
+        
+        # Characters not allowed in Windows filenames
+        invalid_chars = '<>:"/\\|?*'
+        for char in invalid_chars:
+            text = text.replace(char, '-')
+        
+        # Replace quotes and other problematic characters
+        text = text.replace('"', '').replace("'", '').replace('`', '')
+        
+        # Remove multiple consecutive spaces/dashes and strip
+        import re
+        text = re.sub(r'[-\s]+', ' ', text).strip()
+        text = text.replace(' ', '_')
+        
+        return text[:50]  # Limit length
+    
     def _check_stream_live(self):
         print(f"🔍 Checking if {self.username} is live...")
         try:
             result = subprocess.run([
                 'streamlink', '--json', f'https://www.twitch.tv/{self.username}'
-            ], capture_output=True, text=True, timeout=20)
+            ], capture_output=True, text=True, timeout=20, encoding='utf-8', errors='replace')
             
             if result.returncode == 0:
                 print("✅ Stream is available")
                 try:
                     stream_data = json.loads(result.stdout)
-                    self.stream_title = stream_data.get('metadata', {}).get('title', '').replace('/', '-').replace('\\', '-').replace(':', '-')[:50]
-                    self.stream_category = stream_data.get('metadata', {}).get('category', '').replace('/', '-').replace('\\', '-').replace(':', '-')[:30]
-                    print(f"📊 Title: {self.stream_title}")
-                    print(f"🎮 Category: {self.stream_category}")
-                except:
-                    pass
+                    raw_title = stream_data.get('metadata', {}).get('title', '')
+                    raw_category = stream_data.get('metadata', {}).get('category', '')
+                    
+                    self.stream_title = self._sanitize_filename(raw_title)
+                    self.stream_category = self._sanitize_filename(raw_category)
+                    
+                    print(f"📊 Title: {raw_title}")
+                    print(f"🎮 Category: {raw_category}")
+                    print(f"📝 Sanitized title: {self.stream_title}")
+                    print(f"📝 Sanitized category: {self.stream_category}")
+                except Exception as e:
+                    print(f"⚠️ Could not parse stream metadata: {e}")
                 return True
+            else:
+                print(f"❌ Stream check failed: {result.stderr}")
+                return False
+        except subprocess.TimeoutExpired:
+            print("❌ Stream check timed out")
             return False
-        except:
+        except Exception as e:
+            print(f"❌ Stream check error: {e}")
             return False
     
     def _create_filename(self):
-        timestamp = datetime.now().strftime("%d_%m_%y - %H_%M")
+        timestamp = datetime.now().strftime("%d_%m_%y-%H_%M")
         
         # Build filename with stream info
         parts = [self.username, timestamp]
@@ -83,9 +115,17 @@ class TwitchRecorder:
         if self.stream_title:
             parts.insert(-1, self.stream_title)
         
-        filename = f'{" - ".join(parts)}.mp4'
+        filename = f'{"_".join(parts)}.mp4'
         self.output_filename = os.path.join(self.output_folder, filename)
+        
+        # Double-check the final filename is valid
+        if len(filename) > 200:  # Windows path limit consideration
+            # Shorten if too long
+            filename = f"{self.username}_{timestamp}.mp4"
+            self.output_filename = os.path.join(self.output_folder, filename)
+        
         print(f"📝 Output: {filename}")
+        print(f"📂 Full path: {self.output_filename}")
     
     def _set_title(self, title):
         try:
@@ -132,7 +172,13 @@ class TwitchRecorder:
         try:
             print("📡 Recording...")
             self.recording_process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, 
+                text=True, 
+                bufsize=1,
+                encoding='utf-8',
+                errors='replace'
             )
             
             # Monitor output for errors/warnings
@@ -144,6 +190,8 @@ class TwitchRecorder:
                     print(f"\n❌ {line}")
                 elif 'warning' in line.lower():
                     print(f"\n⚠️ {line}")
+                elif line:  # Print non-empty lines for debugging
+                    print(f"\n📡 {line}")
             
             return_code = self.recording_process.wait()
             self.is_recording = False
@@ -166,7 +214,10 @@ class TwitchRecorder:
                 self.recording_process.terminate()
                 self.recording_process.wait(timeout=5)
             except:
-                self.recording_process.kill()
+                try:
+                    self.recording_process.kill()
+                except:
+                    pass
     
     def _handle_completion(self, return_code):
         if os.path.exists(self.output_filename):
@@ -177,10 +228,15 @@ class TwitchRecorder:
             print(f"📊 Size: {size_mb:.1f}MB")
             if duration:
                 print(f"📊 Duration: {str(duration).split('.')[0]}")
+            print(f"📂 Saved to: {self.output_filename}")
             
             if return_code == 0:
                 self._set_title(f"Complete - {self.username} - {size_mb:.1f}MB")
                 return True
+            else:
+                print(f"⚠️ Process returned code: {return_code}")
+        else:
+            print(f"❌ Output file not found: {self.output_filename}")
         
         print(f"⚠️ Finished with issues")
         return False
@@ -194,5 +250,9 @@ if __name__ == '__main__':
             print("🎉 Success!")
         else:
             print("😞 Failed")
+    except KeyboardInterrupt:
+        print("\n🛑 Interrupted by user")
     except Exception as e:
         print(f"💥 Fatal error: {e}")
+        import traceback
+        traceback.print_exc()
